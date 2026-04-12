@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -30,6 +30,32 @@
       <button class="btn-call" style="background:#f97316" onclick="window.location.href='tel:108'">🚑 Call 108</button>
       <button class="btn-acknowledge" id="alarmCloseBtn">✓ Acknowledged</button>
     </div>
+  </div>
+</div>
+
+<!-- CRASH DETECTION COUNTDOWN MODAL -->
+<div id="crashCountdownOverlay" class="modal-overlay hidden">
+  <div class="modal-card crash-countdown-card">
+    <div class="crash-icon-wrap">
+      <div class="crash-pulse-ring"></div>
+      <div class="crash-pulse-ring delay1"></div>
+      <div class="crash-icon-inner">💥</div>
+    </div>
+    <h2 class="crash-title">CRASH DETECTED!</h2>
+    <p class="crash-subtitle">Sudden impact detected via motion sensor</p>
+    <div class="crash-timer-wrap">
+      <svg class="crash-timer-svg" viewBox="0 0 120 120">
+        <circle class="crash-timer-bg" cx="60" cy="60" r="52"/>
+        <circle class="crash-timer-fill" cx="60" cy="60" r="52" id="crashTimerCircle"/>
+      </svg>
+      <div class="crash-timer-num" id="crashTimerNum">10</div>
+    </div>
+    <p class="crash-timer-label">Sending SOS in <span id="crashTimerCountdown">10</span> seconds…</p>
+    <div style="display:flex;gap:.75rem;flex-direction:column;width:100%">
+      <button class="btn-call" id="crashSendNowBtn">🚨 SEND SOS NOW</button>
+      <button class="btn-acknowledge" id="crashCancelBtn">✓ I'm Safe — Cancel Alert</button>
+    </div>
+    <p style="font-size:.7rem;color:var(--text3);margin-top:.75rem">Impact threshold: <span id="crashSensitivityLabel">Medium</span></p>
   </div>
 </div>
 
@@ -90,7 +116,8 @@
       <a href="#home"      class="nav-link active" data-sec="home">🏠 Home</a>
       <a href="#location"  class="nav-link" data-sec="location">📍 Live Map</a>
       <a href="#hospitals" class="nav-link" data-sec="hospitals">🏥 Hospitals</a>
-      <a href="#profile"   class="nav-link" data-sec="profile">👤 Medical ID</a>
+      <a href="#crash"     class="nav-link" data-sec="crash">💥 Crash Detect</a>
+      <a href="#profile"   class="nav-link" data-sec="profile">👤 My Profile</a>
       <a href="#contacts"  class="nav-link" data-sec="contacts">📞 Contacts</a>
       <a href="#alerts"    class="nav-link" data-sec="alerts">📋 Alert Log</a>
     </nav>
@@ -105,7 +132,8 @@
   <a href="#home"      class="mobile-link" data-sec="home">🏠 Home</a>
   <a href="#location"  class="mobile-link" data-sec="location">📍 Live Map</a>
   <a href="#hospitals" class="mobile-link" data-sec="hospitals">🏥 Hospitals</a>
-  <a href="#profile"   class="mobile-link" data-sec="profile">👤 Medical ID</a>
+  <a href="#crash"     class="mobile-link" data-sec="crash">💥 Crash Detect</a>
+  <a href="#profile"  class="mobile-link" data-sec="profile">👤 My Profile</a>
   <a href="#contacts"  class="mobile-link" data-sec="contacts">📞 Contacts</a>
   <a href="#alerts"    class="mobile-link" data-sec="alerts">📋 Alert Log</a>
 </div>
@@ -199,6 +227,7 @@
             </div>
           </div>
           <div class="sos-features">
+            <div class="feature"><span>💥</span> Auto crash detect</div>
             <div class="feature"><span>⏱️</span> ~3 min response</div>
             <div class="feature"><span>📡</span> Live GPS tracking</div>
             <div class="feature"><span>🏥</span> Nearby hospitals</div>
@@ -295,25 +324,128 @@
   </div>
 </section>
 
+<!-- ══ CRASH DETECTION ══ -->
+<section id="crash" class="section section-alt">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">💥 AUTO CRASH DETECTION</span>
+      <h2 class="section-title">Motion-Based Accident Detection</h2>
+      <p class="section-subtitle">Uses your phone's accelerometer to detect sudden impacts. If a crash is detected, a 10-second countdown begins — cancel if you're safe, or let it auto-send SOS with your location and nearest hospital.</p>
+    </div>
+
+    <div class="crash-grid">
+      <!-- Status Panel -->
+      <div class="crash-status-card">
+        <div class="crash-status-header">
+          <div class="crash-status-indicator" id="crashStatusIndicator">
+            <div class="crash-indicator-dot off"></div>
+            <span id="crashStatusLabel">INACTIVE</span>
+          </div>
+          <button class="crash-toggle-btn" id="crashToggleBtn">Enable Detection</button>
+        </div>
+
+        <div class="crash-live-data">
+          <div class="crash-axis">
+            <div class="axis-label">X-AXIS (m/s²)</div>
+            <div class="axis-bar-wrap"><div class="axis-bar" id="axisX"></div></div>
+            <div class="axis-val" id="axisXVal">0.0</div>
+          </div>
+          <div class="crash-axis">
+            <div class="axis-label">Y-AXIS (m/s²)</div>
+            <div class="axis-bar-wrap"><div class="axis-bar" id="axisY"></div></div>
+            <div class="axis-val" id="axisYVal">0.0</div>
+          </div>
+          <div class="crash-axis">
+            <div class="axis-label">Z-AXIS (m/s²)</div>
+            <div class="axis-bar-wrap"><div class="axis-bar" id="axisZ"></div></div>
+            <div class="axis-val" id="axisZVal">0.0</div>
+          </div>
+          <div class="crash-axis g-force">
+            <div class="axis-label">G-FORCE (total)</div>
+            <div class="axis-bar-wrap"><div class="axis-bar gbar" id="axisG"></div></div>
+            <div class="axis-val" id="axisGVal">0.0</div>
+          </div>
+        </div>
+
+        <div class="crash-threshold-row">
+          <label class="threshold-label">SENSITIVITY</label>
+          <div class="threshold-options">
+            <button class="thresh-btn" data-thresh="15" data-label="Low">Low (15g)</button>
+            <button class="thresh-btn active" data-thresh="10" data-label="Medium">Medium (10g)</button>
+            <button class="thresh-btn" data-thresh="6" data-label="High">High (6g)</button>
+          </div>
+        </div>
+        <p class="crash-note">⚠️ Keep phone unlocked and screen active for best detection accuracy.</p>
+      </div>
+
+      <!-- Info Panel -->
+      <div class="crash-info-panel">
+        <div class="crash-info-card">
+          <div class="crash-info-icon">🔬</div>
+          <div>
+            <div class="crash-info-title">How It Works</div>
+            <div class="crash-info-body">Your phone's accelerometer monitors G-force in real time. A sudden spike (crash threshold) triggers an automatic 10-second countdown. If uncancelled, an SOS is sent.</div>
+          </div>
+        </div>
+        <div class="crash-info-card">
+          <div class="crash-info-icon">📡</div>
+          <div>
+            <div class="crash-info-title">What Gets Sent</div>
+            <div class="crash-info-body">Your live GPS coordinates, name, blood group, allergies, nearest hospital details, and a Google Maps link — all in one SMS/WhatsApp message to your emergency contacts.</div>
+          </div>
+        </div>
+        <div class="crash-info-card">
+          <div class="crash-info-icon">📞</div>
+          <div>
+            <div class="crash-info-title">Automatic Emergency Call</div>
+            <div class="crash-info-body">After SOS is sent, the app immediately prompts you to call 108 (Ambulance) or 112 (Emergency). The nearest hospital is shown in the alert overlay.</div>
+          </div>
+        </div>
+        <div class="crash-info-card">
+          <div class="crash-info-icon">🛡️</div>
+          <div>
+            <div class="crash-info-title">False Alarm Protection</div>
+            <div class="crash-info-body">A 10-second cancel window prevents false alarms. Tap "I'm Safe" to cancel. Works best when your phone is mounted (dashboard/pocket), not hand-held.</div>
+          </div>
+        </div>
+        <div class="crash-history-panel">
+          <div class="crash-history-header">
+            <span>💥 Crash Detection Log</span>
+            <button class="btn-secondary" id="clearCrashLog" style="font-size:.72rem;padding:.3rem .7rem">Clear</button>
+          </div>
+          <div id="crashLogList"><div class="crash-log-empty">No crashes detected yet</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ PROFILE ══ -->
 <section id="profile" class="section section-alt">
   <div class="container">
     <div class="section-header">
-      <span class="section-tag">👤 MEDICAL ID</span>
-      <h2 class="section-title">Emergency Health Profile</h2>
-      <p class="section-subtitle">Critical medical information shared with first responders during emergencies</p>
+      <span class="section-tag">👤 YOUR PROFILE</span>
+      <h2 class="section-title">Create Your Emergency Profile</h2>
+      <p class="section-subtitle">Your personal emergency ID card — shared automatically with first responders during SOS and crash events</p>
     </div>
     <div class="profile-grid">
+      <!-- ID CARD -->
       <div class="medical-card">
         <div class="card-header">
           <span class="card-brand">✚ RescueNet</span>
           <span class="card-badge">MEDICAL ID</span>
         </div>
         <div class="avatar-section">
-          <div class="avatar" id="avatar">?</div>
+          <div class="avatar-wrap">
+            <div class="avatar" id="avatar">?</div>
+            <img id="avatarPhoto" src="" alt="Profile" class="avatar-photo hidden"/>
+            <label class="avatar-upload-btn" for="profilePhotoInput" title="Upload photo">📷</label>
+            <input type="file" id="profilePhotoInput" accept="image/*" style="display:none"/>
+          </div>
           <div class="blood-type" id="bloodType">—</div>
         </div>
         <h3 class="patient-name" id="patientName">Your Name</h3>
+        <div class="id-card-tags" id="idCardTags"></div>
         <div class="info-grid">
           <div class="info-item"><span class="info-label">Blood Group</span><span class="info-value" id="infoBlood">—</span></div>
           <div class="info-item"><span class="info-label">Age</span><span class="info-value" id="infoAge">—</span></div>
@@ -321,25 +453,79 @@
           <div class="info-item"><span class="info-label">Phone</span><span class="info-value" id="infoPhone">—</span></div>
           <div class="info-item full-width"><span class="info-label">Allergies</span><span class="info-value" id="infoAllergies">None listed</span></div>
           <div class="info-item full-width"><span class="info-label">Medical Conditions</span><span class="info-value" id="infoConditions">None listed</span></div>
+          <div class="info-item full-width"><span class="info-label">Emergency Medication</span><span class="info-value" id="infoMedication">None listed</span></div>
+          <div class="info-item full-width"><span class="info-label">Doctor / Hospital</span><span class="info-value" id="infoDoctor">—</span></div>
+        </div>
+        <div class="id-card-qr" id="idCardQrWrap" style="display:none">
+          <canvas id="idCardQr" width="80" height="80"></canvas>
+          <span>Scan for full medical info</span>
+        </div>
+        <div class="profile-completeness">
+          <div class="completeness-label">Profile Completeness <span id="completenessPercent">0%</span></div>
+          <div class="completeness-bar"><div class="completeness-fill" id="completenessFill"></div></div>
         </div>
       </div>
+
+      <!-- FORM -->
       <div class="profile-form">
-        <div class="form-group"><label>FULL NAME *</label><input type="text" id="pName" placeholder="Enter your full name"/></div>
-        <div class="form-row">
-          <div class="form-group"><label>PHONE NUMBER</label><input type="tel" id="pPhone" placeholder="+91 XXXXXXXXXX"/></div>
-          <div class="form-group"><label>AGE</label><input type="number" id="pAge" placeholder="Age"/></div>
+        <!-- TABS -->
+        <div class="profile-tabs">
+          <button class="profile-tab active" data-tab="basic">👤 Basic Info</button>
+          <button class="profile-tab" data-tab="medical">🏥 Medical</button>
+          <button class="profile-tab" data-tab="emergency">🆘 Emergency</button>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>GENDER</label><select id="pGender"><option>Male</option><option>Female</option><option>Other</option></select></div>
-          <div class="form-group"><label>BLOOD GROUP</label><select id="pBlood"><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></select></div>
+
+        <!-- BASIC TAB -->
+        <div class="tab-pane active" id="tab-basic">
+          <div class="form-group"><label>FULL NAME *</label><input type="text" id="pName" placeholder="Enter your full name"/></div>
+          <div class="form-row">
+            <div class="form-group"><label>PHONE NUMBER</label><input type="tel" id="pPhone" placeholder="+91 XXXXXXXXXX"/></div>
+            <div class="form-group"><label>AGE</label><input type="number" id="pAge" placeholder="Age" min="1" max="120"/></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>GENDER</label>
+              <select id="pGender"><option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option></select>
+            </div>
+            <div class="form-group"><label>BLOOD GROUP</label>
+              <select id="pBlood"><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>HOME ADDRESS</label><input type="text" id="pAddress" placeholder="Your full address in India"/></div>
+          <div class="form-group"><label>AADHAR / ID NUMBER (last 4 digits)</label><input type="text" id="pAadhar" maxlength="4" placeholder="XXXX"/></div>
+          <div class="form-group"><label>OCCUPATION</label><input type="text" id="pOccupation" placeholder="e.g., Software Engineer, Student"/></div>
         </div>
-        <div class="form-group"><label>ADDRESS</label><input type="text" id="pAddress" placeholder="Your full address in India"/></div>
-        <div class="form-group"><label>ALLERGIES</label><input type="text" id="pAllergies" placeholder="e.g., Penicillin, Peanuts, Latex"/></div>
-        <div class="form-group"><label>MEDICAL CONDITIONS</label><textarea id="pMedical" rows="2" placeholder="e.g., Diabetes, Hypertension, Asthma"></textarea></div>
+
+        <!-- MEDICAL TAB -->
+        <div class="tab-pane" id="tab-medical">
+          <div class="form-group"><label>ALLERGIES</label><input type="text" id="pAllergies" placeholder="e.g., Penicillin, Peanuts, Latex"/></div>
+          <div class="form-group"><label>CHRONIC CONDITIONS</label><textarea id="pMedical" rows="2" placeholder="e.g., Diabetes, Hypertension, Asthma"></textarea></div>
+          <div class="form-group"><label>CURRENT MEDICATIONS</label><textarea id="pMedication" rows="2" placeholder="e.g., Metformin 500mg, Lisinopril 10mg"></textarea></div>
+          <div class="form-group"><label>DISABILITIES / SPECIAL NEEDS</label><input type="text" id="pDisability" placeholder="e.g., Hearing impaired, Wheelchair user"/></div>
+          <div class="form-group"><label>ORGAN DONOR</label>
+            <select id="pDonor"><option value="">Not specified</option><option value="Yes">Yes — I'm an organ donor</option><option value="No">No</option></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>HEIGHT (cm)</label><input type="number" id="pHeight" placeholder="170"/></div>
+            <div class="form-group"><label>WEIGHT (kg)</label><input type="number" id="pWeight" placeholder="70"/></div>
+          </div>
+        </div>
+
+        <!-- EMERGENCY TAB -->
+        <div class="tab-pane" id="tab-emergency">
+          <div class="form-group"><label>PRIMARY EMERGENCY CONTACT NAME</label><input type="text" id="pEcName" placeholder="e.g., Priya Sharma (Mother)"/></div>
+          <div class="form-group"><label>PRIMARY EMERGENCY CONTACT PHONE</label><input type="tel" id="pEcPhone" placeholder="+91 XXXXXXXXXX"/></div>
+          <div class="form-group"><label>DOCTOR / HOSPITAL</label><input type="text" id="pDoctor" placeholder="e.g., Dr. Rajan, Apollo Hospital Kolkata"/></div>
+          <div class="form-group"><label>DOCTOR'S PHONE</label><input type="tel" id="pDoctorPhone" placeholder="+91 XXXXXXXXXX"/></div>
+          <div class="form-group"><label>INSURANCE POLICY NUMBER</label><input type="text" id="pInsurance" placeholder="e.g., LIC/HLD/2024/XXXXXX"/></div>
+          <div class="form-group"><label>SPECIAL EMERGENCY NOTES</label><textarea id="pEmergencyNote" rows="2" placeholder="e.g., Carries EpiPen, Do not give NSAIDs, Vegetarian diet only"></textarea></div>
+        </div>
+
         <div class="form-actions">
-          <button class="btn-primary" id="saveProfileBtn">💾 Save Emergency Profile</button>
+          <button class="btn-primary" id="saveProfileBtn">💾 Save Profile</button>
+          <button class="btn-secondary" id="exportProfileBtn">📤 Export ID Card</button>
           <button class="btn-secondary" id="clearProfileBtn">🗑 Clear</button>
         </div>
+        <p class="profile-privacy-note">🔒 All data is stored only on your device. Nothing is sent to any server.</p>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-'use strict';
+ 'use strict';
 
 /* ════ CONSTANTS ════ */
 const HOLD_MS = 2000;
@@ -501,15 +501,44 @@ function updateIDCard() {
   $('infoPhone').textContent     = p.phone    || '—';
   $('infoAllergies').textContent = p.allergies || 'None listed';
   $('infoConditions').textContent= p.medical  || 'None listed';
+  $('infoMedication') && ($('infoMedication').textContent = p.medication || 'None listed');
+  $('infoDoctor') && ($('infoDoctor').textContent = [p.doctor, p.doctorPhone].filter(Boolean).join(' · ') || '—');
   $('avatar').textContent        = (p.name || '?').charAt(0).toUpperCase();
-  if (p.name)      $('pName').value     = p.name;
-  if (p.phone)     $('pPhone').value    = p.phone;
-  if (p.age)       $('pAge').value      = p.age;
-  if (p.gender)    $('pGender').value   = p.gender;
-  if (p.blood)     $('pBlood').value    = p.blood;
-  if (p.address)   $('pAddress').value  = p.address;
-  if (p.allergies) $('pAllergies').value= p.allergies;
-  if (p.medical)   $('pMedical').value  = p.medical;
+
+  // Profile photo
+  const savedPhoto = localStorage.getItem('rn_profile_photo');
+  if (savedPhoto) showProfilePhoto(savedPhoto);
+
+  // Tags
+  updateIDCardTags(p);
+
+  // Completeness
+  const pct = calcProfileCompleteness(p);
+  $('completenessPercent') && ($('completenessPercent').textContent = pct + '%');
+  $('completenessFill') && ($('completenessFill').style.width = pct + '%');
+
+  // Populate form fields
+  if (p.name)         $('pName').value      = p.name;
+  if (p.phone)        $('pPhone').value     = p.phone;
+  if (p.age)          $('pAge').value       = p.age;
+  if (p.gender)       $('pGender').value    = p.gender;
+  if (p.blood)        $('pBlood').value     = p.blood;
+  if (p.address)      $('pAddress').value   = p.address;
+  if (p.aadhar)       $('pAadhar') && ($('pAadhar').value = p.aadhar);
+  if (p.occupation)   $('pOccupation') && ($('pOccupation').value = p.occupation);
+  if (p.allergies)    $('pAllergies').value = p.allergies;
+  if (p.medical)      $('pMedical').value   = p.medical;
+  if (p.medication)   $('pMedication') && ($('pMedication').value = p.medication);
+  if (p.disability)   $('pDisability') && ($('pDisability').value = p.disability);
+  if (p.donor)        $('pDonor') && ($('pDonor').value = p.donor);
+  if (p.height)       $('pHeight') && ($('pHeight').value = p.height);
+  if (p.weight)       $('pWeight') && ($('pWeight').value = p.weight);
+  if (p.ecName)       $('pEcName') && ($('pEcName').value = p.ecName);
+  if (p.ecPhone)      $('pEcPhone') && ($('pEcPhone').value = p.ecPhone);
+  if (p.doctor)       $('pDoctor') && ($('pDoctor').value = p.doctor);
+  if (p.doctorPhone)  $('pDoctorPhone') && ($('pDoctorPhone').value = p.doctorPhone);
+  if (p.insurance)    $('pInsurance') && ($('pInsurance').value = p.insurance);
+  if (p.emergencyNote) $('pEmergencyNote') && ($('pEmergencyNote').value = p.emergencyNote);
 }
 
 $('saveProfileBtn').addEventListener('click', () => {
@@ -518,8 +547,22 @@ $('saveProfileBtn').addEventListener('click', () => {
   const profile = {
     name, phone: $('pPhone').value.trim(), age: $('pAge').value.trim(),
     gender: $('pGender').value, blood: $('pBlood').value,
-    address: $('pAddress').value.trim(), allergies: $('pAllergies').value.trim(),
-    medical: $('pMedical').value.trim()
+    address: $('pAddress').value.trim(),
+    aadhar: $('pAadhar') ? $('pAadhar').value.trim() : '',
+    occupation: $('pOccupation') ? $('pOccupation').value.trim() : '',
+    allergies: $('pAllergies').value.trim(),
+    medical: $('pMedical').value.trim(),
+    medication: $('pMedication') ? $('pMedication').value.trim() : '',
+    disability: $('pDisability') ? $('pDisability').value.trim() : '',
+    donor: $('pDonor') ? $('pDonor').value : '',
+    height: $('pHeight') ? $('pHeight').value.trim() : '',
+    weight: $('pWeight') ? $('pWeight').value.trim() : '',
+    ecName: $('pEcName') ? $('pEcName').value.trim() : '',
+    ecPhone: $('pEcPhone') ? $('pEcPhone').value.trim() : '',
+    doctor: $('pDoctor') ? $('pDoctor').value.trim() : '',
+    doctorPhone: $('pDoctorPhone') ? $('pDoctorPhone').value.trim() : '',
+    insurance: $('pInsurance') ? $('pInsurance').value.trim() : '',
+    emergencyNote: $('pEmergencyNote') ? $('pEmergencyNote').value.trim() : ''
   };
   localStorage.setItem('rn_profile', JSON.stringify(profile));
   updateIDCard();
@@ -529,7 +572,10 @@ $('saveProfileBtn').addEventListener('click', () => {
 $('clearProfileBtn').addEventListener('click', () => {
   if (!confirm('Clear all profile data?')) return;
   localStorage.removeItem('rn_profile');
-  $('pName').value=$('pPhone').value=$('pAge').value=$('pAddress').value=$('pAllergies').value=$('pMedical').value='';
+  localStorage.removeItem('rn_profile_photo');
+  ['pName','pPhone','pAge','pAddress','pAllergies','pMedical'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  ['pAadhar','pOccupation','pMedication','pDisability','pHeight','pWeight','pEcName','pEcPhone','pDoctor','pDoctorPhone','pInsurance','pEmergencyNote'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  showProfilePhoto(null);
   updateIDCard();
   toast('Profile cleared', 'info');
 });
@@ -540,12 +586,17 @@ function buildSMS(type, loc, profile, accDetails) {
   let msg = `🚨 RESCUENET INDIA ${type} ALERT 🚨\n\n`;
   msg += `📍 Live Location:\n${mapsUrl}\n`;
   msg += `📌 Coordinates: ${loc.lat.toFixed(5)}°N, ${loc.lng.toFixed(5)}°E\n\n`;
-  if (profile && profile.name) msg += `👤 Name: ${profile.name}\n`;
-  if (profile && profile.blood) msg += `🩸 Blood Group: ${profile.blood}\n`;
-  if (profile && profile.phone) msg += `📞 Contact: ${profile.phone}\n`;
-  if (profile && profile.allergies) msg += `⚠️ Allergies: ${profile.allergies}\n`;
-  if (profile && profile.medical)   msg += `🏥 Conditions: ${profile.medical}\n`;
-  if (profile && profile.address)   msg += `📍 Address: ${profile.address}\n`;
+  if (profile && profile.name)       msg += `👤 Name: ${profile.name}\n`;
+  if (profile && profile.blood)      msg += `🩸 Blood Group: ${profile.blood}\n`;
+  if (profile && profile.phone)      msg += `📞 Contact: ${profile.phone}\n`;
+  if (profile && profile.age)        msg += `🎂 Age: ${profile.age} | ${profile.gender || ''}\n`;
+  if (profile && profile.allergies)  msg += `⚠️ Allergies: ${profile.allergies}\n`;
+  if (profile && profile.medical)    msg += `🏥 Conditions: ${profile.medical}\n`;
+  if (profile && profile.medication) msg += `💊 Medications: ${profile.medication}\n`;
+  if (profile && profile.disability) msg += `♿ Disability: ${profile.disability}\n`;
+  if (profile && profile.ecName)     msg += `🆘 Emergency Contact: ${profile.ecName} (${profile.ecPhone || '—'})\n`;
+  if (profile && profile.doctor)     msg += `👨‍⚕️ Doctor: ${profile.doctor} (${profile.doctorPhone || '—'})\n`;
+  if (profile && profile.address)    msg += `📍 Address: ${profile.address}\n`;
   if (accDetails) {
     msg += `\n🚗 ACCIDENT DETAILS:\n`;
     msg += `• Severity: ${accDetails.severity}\n`;
@@ -882,13 +933,14 @@ document.querySelectorAll('.nav-link, .mobile-link').forEach(link => {
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`.nav-link[data-sec="${sec}"]`).forEach(l => l.classList.add('active'));
     if (sec === 'location') setTimeout(() => { initMap(); if (leafletMap) leafletMap.invalidateSize(); }, 300);
+    if (sec === 'crash') setTimeout(() => { renderCrashLog(); }, 100);
   });
 });
 
 $('menuBtn').addEventListener('click', () => $('mobileMenu').classList.toggle('active'));
 
 /* ════ SCROLL SPY ════ */
-const sections = ['home', 'location', 'hospitals', 'profile', 'contacts', 'alerts'];
+const sections = ['home', 'location', 'hospitals', 'crash', 'profile', 'contacts', 'alerts'];
 const sectionEls = sections.map(id => document.getElementById(id)).filter(Boolean);
 
 window.addEventListener('scroll', () => {
@@ -902,11 +954,323 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
+/* ════ CRASH DETECTION ENGINE ════ */
+let crashDetectionActive   = false;
+let crashThreshold         = 10;   // G-force threshold
+let crashSensitivityLabel  = 'Medium';
+let crashCountdownTimer    = null;
+let crashCountdownSec      = 10;
+let crashTimerRAF          = null;
+let crashLog               = [];
+const CRASH_TIMER_CIRCUM   = 2 * Math.PI * 52;
+
+// Smoothed accelerometer state
+let accelPrev = { x: 0, y: 0, z: 9.8 };
+
+function initCrashDetection() {
+  if (typeof DeviceMotionEvent === 'undefined') {
+    toast('⚠ Motion sensor not available on this device/browser', 'error', 5000);
+    return false;
+  }
+
+  // iOS 13+ requires permission
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission()
+      .then(state => {
+        if (state === 'granted') {
+          window.addEventListener('devicemotion', onDeviceMotion);
+          activateCrashDetection();
+        } else {
+          toast('⚠ Motion permission denied. Allow in iOS Settings.', 'error', 6000);
+        }
+      })
+      .catch(e => { toast('Motion permission error: ' + e.message, 'error'); });
+    return false;
+  }
+
+  window.addEventListener('devicemotion', onDeviceMotion);
+  return true;
+}
+
+function activateCrashDetection() {
+  crashDetectionActive = true;
+  const dot   = document.querySelector('.crash-indicator-dot');
+  const label = $('crashStatusLabel');
+  const btn   = $('crashToggleBtn');
+  if (dot)   { dot.className = 'crash-indicator-dot on'; }
+  if (label) label.textContent = 'MONITORING';
+  if (btn)   { btn.textContent = 'Disable Detection'; btn.classList.add('active'); }
+  toast('💥 Crash Detection ACTIVE — monitoring motion', 'success', 3000);
+}
+
+function deactivateCrashDetection() {
+  crashDetectionActive = false;
+  window.removeEventListener('devicemotion', onDeviceMotion);
+  const dot   = document.querySelector('.crash-indicator-dot');
+  const label = $('crashStatusLabel');
+  const btn   = $('crashToggleBtn');
+  if (dot)   { dot.className = 'crash-indicator-dot off'; }
+  if (label) label.textContent = 'INACTIVE';
+  if (btn)   { btn.textContent = 'Enable Detection'; btn.classList.remove('active'); }
+  resetAxisBars();
+  toast('💥 Crash Detection disabled', 'info');
+}
+
+function resetAxisBars() {
+  ['axisX','axisY','axisZ','axisG'].forEach(id => { const el = $(id); if (el) el.style.width = '0%'; });
+  ['axisXVal','axisYVal','axisZVal','axisGVal'].forEach(id => { const el = $(id); if (el) el.textContent = '0.0'; });
+}
+
+function onDeviceMotion(e) {
+  if (!crashDetectionActive) return;
+  const acc = e.accelerationIncludingGravity || e.acceleration;
+  if (!acc) return;
+
+  const x = acc.x || 0, y = acc.y || 0, z = acc.z || 0;
+  const gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
+
+  // Update live bars
+  const maxG = 20;
+  updateAxisBar('axisX', 'axisXVal', Math.abs(x), 20);
+  updateAxisBar('axisY', 'axisYVal', Math.abs(y), 20);
+  updateAxisBar('axisZ', 'axisZVal', Math.abs(z), 20);
+  updateAxisBar('axisG', 'axisGVal', gForce,       maxG, true);
+
+  // Crash detection: compare delta from baseline
+  const dx = Math.abs(x - accelPrev.x);
+  const dy = Math.abs(y - accelPrev.y);
+  const dz = Math.abs(z - accelPrev.z);
+  const delta = Math.sqrt(dx*dx + dy*dy + dz*dz) / 9.81;
+
+  accelPrev = { x, y, z };
+
+  if (delta > crashThreshold && !crashCountdownTimer) {
+    triggerCrashAlert(gForce, delta);
+  }
+}
+
+function updateAxisBar(barId, valId, val, max, isG = false) {
+  const el = $(barId); const ve = $(valId);
+  if (!el || !ve) return;
+  const pct = Math.min((val / max) * 100, 100);
+  el.style.width = pct + '%';
+  ve.textContent = isG ? val.toFixed(2) : val.toFixed(1);
+  // Color code
+  if (isG) {
+    if (pct > 70) el.style.background = '#ef4444';
+    else if (pct > 40) el.style.background = '#f59e0b';
+    else el.style.background = '#10b981';
+  }
+}
+
+function triggerCrashAlert(gForce, delta) {
+  if (navigator.vibrate) navigator.vibrate([500,200,500,200,500]);
+  // Visual indicator
+  const dot = document.querySelector('.crash-indicator-dot');
+  if (dot) dot.className = 'crash-indicator-dot detecting';
+  $('crashStatusLabel').textContent = 'CRASH DETECTED!';
+
+  // Show countdown modal
+  crashCountdownSec = 10;
+  $('crashTimerNum').textContent = crashCountdownSec;
+  $('crashTimerCountdown').textContent = crashCountdownSec;
+  $('crashSensitivityLabel').textContent = crashSensitivityLabel;
+  const circle = $('crashTimerCircle');
+  if (circle) { circle.style.strokeDasharray = CRASH_TIMER_CIRCUM; circle.style.strokeDashoffset = 0; }
+  $('crashCountdownOverlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  playAlarm();
+
+  const startTime = Date.now();
+  const totalMs   = 10000;
+
+  function tick() {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.ceil((totalMs - elapsed) / 1000);
+    const progress  = elapsed / totalMs;
+
+    if (remaining !== crashCountdownSec) {
+      crashCountdownSec = remaining;
+      $('crashTimerNum').textContent = Math.max(0, remaining);
+      $('crashTimerCountdown').textContent = Math.max(0, remaining);
+    }
+    if (circle) circle.style.strokeDashoffset = CRASH_TIMER_CIRCUM * progress;
+
+    if (elapsed >= totalMs) {
+      closeCrashCountdown();
+      triggerSOS('ACCIDENT', { severity: 'HIGH', injuredCount: 1, vehicleType: 'Unknown', desc: `Auto-detected crash. G-force: ${gForce.toFixed(2)}g` });
+      addCrashLog(gForce, 'sent');
+      return;
+    }
+    crashTimerRAF = requestAnimationFrame(tick);
+  }
+
+  crashTimerRAF = requestAnimationFrame(tick);
+}
+
+function closeCrashCountdown() {
+  if (crashTimerRAF) { cancelAnimationFrame(crashTimerRAF); crashTimerRAF = null; }
+  $('crashCountdownOverlay').classList.add('hidden');
+  document.body.style.overflow = '';
+  stopAlarm();
+  // Restore indicator
+  const dot = document.querySelector('.crash-indicator-dot');
+  if (dot && crashDetectionActive) dot.className = 'crash-indicator-dot on';
+  $('crashStatusLabel').textContent = crashDetectionActive ? 'MONITORING' : 'INACTIVE';
+}
+
+function addCrashLog(gForce, status) {
+  const entry = { time: new Date().toLocaleString('en-IN'), gForce: gForce.toFixed(2), status };
+  crashLog.unshift(entry);
+  renderCrashLog();
+}
+
+function renderCrashLog() {
+  const el = $('crashLogList');
+  if (!el) return;
+  if (!crashLog.length) { el.innerHTML = '<div class="crash-log-empty">No crashes detected yet</div>'; return; }
+  el.innerHTML = crashLog.slice(0, 10).map(e => `
+    <div class="crash-log-item">
+      <div class="crash-log-icon">💥</div>
+      <div class="crash-log-info">
+        <div class="crash-log-title">Impact: ${e.gForce}g detected</div>
+        <div class="crash-log-meta">${e.time}</div>
+        <span class="crash-log-badge ${e.status}">${e.status === 'sent' ? '🚨 SOS SENT' : '✓ Cancelled (Safe)'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Crash Detection Controls
+$('crashToggleBtn').addEventListener('click', () => {
+  if (!crashDetectionActive) {
+    const started = initCrashDetection();
+    if (started) activateCrashDetection();
+  } else {
+    deactivateCrashDetection();
+  }
+});
+
+$('crashSendNowBtn').addEventListener('click', () => {
+  if (crashTimerRAF) { cancelAnimationFrame(crashTimerRAF); crashTimerRAF = null; }
+  closeCrashCountdown();
+  triggerSOS('ACCIDENT', { severity: 'CRITICAL', injuredCount: 1, vehicleType: 'Unknown', desc: 'Auto-detected crash — manual SOS activation' });
+  addCrashLog(0, 'sent');
+});
+
+$('crashCancelBtn').addEventListener('click', () => {
+  if (crashTimerRAF) { cancelAnimationFrame(crashTimerRAF); crashTimerRAF = null; }
+  closeCrashCountdown();
+  addCrashLog(0, 'cancelled');
+  toast('✅ You\'re marked safe. Crash alert cancelled.', 'success', 4000);
+});
+
+$('clearCrashLog').addEventListener('click', () => { crashLog = []; renderCrashLog(); toast('Crash log cleared', 'info'); });
+
+document.querySelectorAll('.thresh-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.thresh-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    crashThreshold       = parseFloat(btn.dataset.thresh);
+    crashSensitivityLabel = btn.dataset.label;
+    toast(`Crash sensitivity set to ${btn.dataset.label} (${crashThreshold}g)`, 'info');
+  });
+});
+
+/* ════ ENHANCED PROFILE ════ */
+// Profile Photo Upload
+$('profilePhotoInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    localStorage.setItem('rn_profile_photo', dataUrl);
+    showProfilePhoto(dataUrl);
+  };
+  reader.readAsDataURL(file);
+});
+
+function showProfilePhoto(dataUrl) {
+  const photoEl = $('avatarPhoto');
+  const avatarEl = $('avatar');
+  if (dataUrl) {
+    photoEl.src = dataUrl;
+    photoEl.classList.remove('hidden');
+    avatarEl.style.display = 'none';
+  } else {
+    photoEl.classList.add('hidden');
+    avatarEl.style.display = 'flex';
+  }
+}
+
+// Profile Tabs
+document.querySelectorAll('.profile-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Export Profile as Text Card
+$('exportProfileBtn')?.addEventListener('click', () => {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem('rn_profile') || '{}'); } catch(_){}
+  if (!p.name) return toast('Save your profile first', 'error');
+  const card = `
+╔══════════════════════════════╗
+║   ✚ RESCUENET MEDICAL ID     ║
+╚══════════════════════════════╝
+👤 Name: ${p.name || '—'}
+🩸 Blood: ${p.blood || '—'} | Age: ${p.age || '—'} | ${p.gender || '—'}
+📞 Phone: ${p.phone || '—'}
+📍 Address: ${p.address || '—'}
+⚠️ Allergies: ${p.allergies || 'None'}
+🏥 Conditions: ${p.medical || 'None'}
+💊 Medications: ${p.medication || 'None'}
+♿ Disability: ${p.disability || 'None'}
+🫀 Organ Donor: ${p.donor || 'Not specified'}
+📏 Height: ${p.height || '—'}cm | Weight: ${p.weight || '—'}kg
+👨‍⚕️ Doctor: ${p.doctor || '—'} (${p.doctorPhone || '—'})
+🆘 Emergency Contact: ${p.ecName || '—'} (${p.ecPhone || '—'})
+📋 Insurance: ${p.insurance || '—'}
+📝 Notes: ${p.emergencyNote || '—'}
+`.trim();
+  navigator.clipboard.writeText(card)
+    .then(() => toast('📋 Medical ID copied to clipboard!', 'success', 4000))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = card; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      toast('📋 Medical ID copied!', 'success');
+    });
+});
+
+// Profile Completeness
+function calcProfileCompleteness(p) {
+  const fields = ['name','phone','age','gender','blood','address','allergies','medical','medication','ecName','ecPhone','doctor'];
+  const filled = fields.filter(f => p[f] && String(p[f]).trim()).length;
+  return Math.round((filled / fields.length) * 100);
+}
+
+function updateIDCardTags(p) {
+  const el = $('idCardTags');
+  if (!el) return;
+  const tags = [];
+  if (p.allergies) tags.push(`<span class="id-card-tag allergy">⚠️ ${p.allergies.split(',')[0].trim()}</span>`);
+  if (p.medical)   tags.push(`<span class="id-card-tag condition">🏥 ${p.medical.split(',')[0].trim()}</span>`);
+  if (p.donor === 'Yes') tags.push(`<span class="id-card-tag donor">🫀 Organ Donor</span>`);
+  el.innerHTML = tags.join('');
+}
+
 /* ════ INIT ════ */
 setProgress(0);
 updateIDCard();
 renderContacts();
 renderEmergencyNumbers();
+renderCrashLog();
 toast('🟢 RescueNet India Active — Emergency System Ready', 'success', 4000);
 
 // Auto-get location silently on load

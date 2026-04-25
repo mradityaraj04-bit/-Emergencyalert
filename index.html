@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"/>
+<meta name="theme-color" content="#00e5ff"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="RescueNet"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="description" content="India's fastest emergency response — One tap SOS, GPS, hospital finder, crash detection."/>
 <title>RescueNet — India's Emergency Response System</title>
+<link rel="manifest" href="manifest.json"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -12,11 +19,16 @@
 </head>
 <body>
 
-<!-- ══ AUTH SCREEN ══ -->
+<!-- ══════════════════════════════════════════
+     AUTH SCREEN — Phone OTP Login/Register
+     ══════════════════════════════════════════ -->
 <div id="authScreen" class="auth-screen">
   <div class="auth-bg"></div>
   <div class="auth-grid-lines"></div>
-  <div class="auth-container">
+
+  <div class="auth-scroll">
+
+    <!-- Logo -->
     <div class="auth-logo">
       <div class="auth-logo-icon">✚</div>
       <div>
@@ -25,106 +37,208 @@
       </div>
     </div>
 
-    <!-- LOGIN PANEL -->
-    <div class="auth-panel" id="loginPanel">
-      <div class="auth-panel-header">
-        <h2 class="auth-title">SIGN IN</h2>
-        <p class="auth-subtitle">Access your emergency dashboard</p>
-      </div>
-      <div class="auth-form">
-        <div class="auth-field">
-          <label>EMAIL / PHONE</label>
-          <input type="text" id="loginEmail" placeholder="you@example.com or +91 XXXXXXXXXX" autocomplete="username"/>
-        </div>
-        <div class="auth-field">
-          <label>PASSWORD</label>
-          <div class="auth-pass-wrap">
-            <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password"/>
-            <button class="auth-eye" onclick="togglePass('loginPass',this)">👁</button>
-          </div>
-        </div>
-        <div class="auth-row">
-          <label class="auth-check-label"><input type="checkbox" id="rememberMe"/> Remember me</label>
-          <a href="#" class="auth-link" onclick="showForgot()">Forgot password?</a>
-        </div>
-        <button class="auth-btn-primary" id="loginBtn" onclick="doLogin()">🔐 SIGN IN</button>
-        <div class="auth-divider"><span>or</span></div>
-        <button class="auth-btn-demo" onclick="demoLogin()">⚡ Quick Demo Access</button>
-        <p class="auth-switch">Don't have an account? <a href="#" onclick="switchAuth('signup')">Create one</a></p>
-      </div>
-    </div>
+    <div class="auth-container">
 
-    <!-- SIGNUP PANEL -->
-    <div class="auth-panel hidden" id="signupPanel">
-      <div class="auth-panel-header">
-        <h2 class="auth-title">CREATE ACCOUNT</h2>
-        <p class="auth-subtitle">Join India's emergency network</p>
+      <!-- Tab Switcher -->
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" data-tab="login">🔐 LOGIN</button>
+        <button class="auth-tab-btn" data-tab="signup">✚ REGISTER</button>
+        <button class="auth-tab-btn" data-tab="forgot">🔄 RESET</button>
       </div>
-      <div class="auth-form">
-        <div class="auth-field-row">
+
+      <!-- ══ LOGIN PANEL ══ -->
+      <div class="auth-panel" id="loginPanel">
+        <div class="auth-panel-header">
+          <h2 class="auth-title">WELCOME BACK</h2>
+          <p class="auth-subtitle">Login with your registered phone number</p>
+        </div>
+
+        <!-- Step dots -->
+        <div class="auth-steps" id="loginSteps">
+          <div class="auth-step-dot active"></div>
+          <div class="auth-step-dot"></div>
+          <div class="auth-step-dot"></div>
+        </div>
+
+        <div class="auth-form">
+
+          <!-- Step 1: Phone -->
           <div class="auth-field">
-            <label>FIRST NAME *</label>
-            <input type="text" id="signupFirst" placeholder="Rahul"/>
+            <label>MOBILE NUMBER</label>
+            <div class="phone-input-wrap">
+              <div class="phone-country-flag">🇮🇳 +91</div>
+              <input type="tel" id="loginPhone" placeholder="98765 43210"
+                maxlength="10" inputmode="numeric" autocomplete="tel"/>
+              <button class="auth-btn-otp" id="loginSendOtpBtn" onclick="loginSendOTP()">Send OTP</button>
+            </div>
           </div>
+
+          <!-- Step 2: OTP -->
+          <div class="otp-section" id="loginOtpSection">
+            <div class="otp-info">
+              <span class="otp-info-icon">📲</span>
+              <span>OTP sent to <strong id="loginPhoneDisplay">—</strong></span>
+            </div>
+            <div class="otp-demo-hint" id="loginOtpDemo"></div>
+            <div id="loginOtpBoxes" class="otp-boxes">
+              <input class="otp-box" type="tel" maxlength="6" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+            </div>
+            <div class="otp-resend">
+              Didn't receive OTP?
+              <span class="otp-timer" id="loginOtpTimer"></span>
+              <button class="otp-resend-btn" id="loginResendBtn" onclick="loginResendOTP()" disabled>Resend</button>
+            </div>
+            <button class="auth-btn-primary" id="loginVerifyBtn"
+              onclick="loginVerifyOTP([...document.querySelectorAll('#loginOtpBoxes .otp-box')].map(b=>b.value).join(''))">
+              🔐 VERIFY &amp; LOGIN
+            </button>
+          </div>
+
+          <div class="auth-divider"><span>or</span></div>
+          <button class="auth-btn-demo" onclick="demoLogin()">⚡ Quick Demo Access</button>
+          <p class="auth-switch">New user? <a href="#" onclick="switchAuth('signup')">Create account</a></p>
+        </div>
+      </div>
+
+      <!-- ══ SIGNUP PANEL ══ -->
+      <div class="auth-panel hidden" id="signupPanel">
+        <div class="auth-panel-header">
+          <h2 class="auth-title">JOIN RESCUENET</h2>
+          <p class="auth-subtitle">Register with your mobile number</p>
+        </div>
+
+        <div class="auth-steps" id="signupSteps">
+          <div class="auth-step-dot active"></div>
+          <div class="auth-step-dot"></div>
+          <div class="auth-step-dot"></div>
+        </div>
+
+        <div class="auth-form">
+          <div class="auth-field-row">
+            <div class="auth-field">
+              <label>FIRST NAME *</label>
+              <input type="text" id="signupFirst" placeholder="Rahul" autocomplete="given-name"/>
+            </div>
+            <div class="auth-field">
+              <label>LAST NAME *</label>
+              <input type="text" id="signupLast" placeholder="Sharma" autocomplete="family-name"/>
+            </div>
+          </div>
+
           <div class="auth-field">
-            <label>LAST NAME *</label>
-            <input type="text" id="signupLast" placeholder="Sharma"/>
+            <label>MOBILE NUMBER *</label>
+            <div class="phone-input-wrap">
+              <div class="phone-country-flag">🇮🇳 +91</div>
+              <input type="tel" id="signupPhone" placeholder="98765 43210"
+                maxlength="10" inputmode="numeric" autocomplete="tel"/>
+              <button class="auth-btn-otp" id="signupSendOtpBtn" onclick="signupSendOTP()">Send OTP</button>
+            </div>
           </div>
-        </div>
-        <div class="auth-field">
-          <label>EMAIL *</label>
-          <input type="email" id="signupEmail" placeholder="rahul@example.com"/>
-        </div>
-        <div class="auth-field">
-          <label>PHONE NUMBER *</label>
-          <input type="tel" id="signupPhone" placeholder="+91 98765 43210"/>
-        </div>
-        <div class="auth-field">
-          <label>CITY / STATE</label>
-          <input type="text" id="signupCity" placeholder="e.g., Mumbai, Maharashtra"/>
-        </div>
-        <div class="auth-field">
-          <label>PASSWORD *</label>
-          <div class="auth-pass-wrap">
-            <input type="password" id="signupPass" placeholder="Min 8 characters" autocomplete="new-password"/>
-            <button class="auth-eye" onclick="togglePass('signupPass',this)">👁</button>
+
+          <div class="auth-field">
+            <label>EMAIL (optional)</label>
+            <input type="email" id="signupEmail" placeholder="rahul@example.com" autocomplete="email"/>
           </div>
-        </div>
-        <div class="auth-strength" id="passStrength"></div>
-        <div class="auth-field">
-          <label>CONFIRM PASSWORD *</label>
-          <input type="password" id="signupPass2" placeholder="Repeat password"/>
-        </div>
-        <label class="auth-check-label" style="margin-bottom:1rem">
-          <input type="checkbox" id="agreeTerms"/>
-          I agree to the <a href="#" class="auth-link">Terms of Service</a> &amp; <a href="#" class="auth-link">Privacy Policy</a>
-        </label>
-        <button class="auth-btn-primary" onclick="doSignup()">✚ CREATE ACCOUNT</button>
-        <p class="auth-switch">Already have an account? <a href="#" onclick="switchAuth('login')">Sign in</a></p>
-      </div>
-    </div>
 
-    <!-- FORGOT PASSWORD -->
-    <div class="auth-panel hidden" id="forgotPanel">
-      <div class="auth-panel-header">
-        <h2 class="auth-title">RESET PASSWORD</h2>
-        <p class="auth-subtitle">We'll send a reset link to your email</p>
-      </div>
-      <div class="auth-form">
-        <div class="auth-field">
-          <label>REGISTERED EMAIL</label>
-          <input type="email" id="forgotEmail" placeholder="your@email.com"/>
+          <div class="auth-field">
+            <label>CITY / STATE</label>
+            <input type="text" id="signupCity" placeholder="e.g., Mumbai, Maharashtra"/>
+          </div>
+
+          <!-- OTP Section -->
+          <div class="otp-section" id="signupOtpSection">
+            <div class="otp-info">
+              <span class="otp-info-icon">📲</span>
+              <span>OTP sent to <strong id="signupPhoneDisplay">—</strong></span>
+            </div>
+            <div class="otp-demo-hint" id="signupOtpDemo"></div>
+            <div id="signupOtpBoxes" class="otp-boxes">
+              <input class="otp-box" type="tel" maxlength="6" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+            </div>
+            <div class="otp-resend">
+              Didn't receive OTP?
+              <span class="otp-timer" id="signupOtpTimer"></span>
+              <button class="otp-resend-btn" id="signupResendBtn" onclick="signupResendOTP()" disabled>Resend</button>
+            </div>
+
+            <label class="auth-check-label">
+              <input type="checkbox" id="agreeTerms"/>
+              I agree to the <a href="#" class="auth-link">Terms</a> &amp; <a href="#" class="auth-link">Privacy Policy</a>
+            </label>
+
+            <button class="auth-btn-primary" id="signupVerifyBtn"
+              onclick="signupVerifyOTP([...document.querySelectorAll('#signupOtpBoxes .otp-box')].map(b=>b.value).join(''))">
+              ✚ VERIFY &amp; CREATE ACCOUNT
+            </button>
+          </div>
+
+          <p class="auth-switch">Already registered? <a href="#" onclick="switchAuth('login')">Login</a></p>
         </div>
-        <button class="auth-btn-primary" onclick="doForgot()">📧 SEND RESET LINK</button>
-        <p class="auth-switch"><a href="#" onclick="switchAuth('login')">← Back to Sign In</a></p>
       </div>
-    </div>
 
-    <div class="auth-credit" style="text-align:center;color:var(--text2);font-size:.82rem;margin-top:1rem;">
-      Made with ❤️ by Aditya Raj & Team Bug Slayers
-    </div>
+      <!-- ══ FORGOT / RESET PANEL ══ -->
+      <div class="auth-panel hidden" id="forgotPanel">
+        <div class="auth-panel-header">
+          <h2 class="auth-title">RESET ACCESS</h2>
+          <p class="auth-subtitle">Verify your mobile number to regain access</p>
+        </div>
+        <div class="auth-form">
+          <div class="auth-field">
+            <label>REGISTERED MOBILE NUMBER</label>
+            <div class="phone-input-wrap">
+              <div class="phone-country-flag">🇮🇳 +91</div>
+              <input type="tel" id="forgotPhone" placeholder="98765 43210"
+                maxlength="10" inputmode="numeric"/>
+              <button class="auth-btn-otp" onclick="forgotSendOTP()">Send OTP</button>
+            </div>
+          </div>
 
-  </div>
+          <div class="otp-section" id="forgotOtpSection">
+            <div class="otp-demo-hint show" id="forgotOtpDemo"></div>
+            <div id="forgotOtpBoxes" class="otp-boxes">
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+              <input class="otp-box" type="tel" maxlength="1" inputmode="numeric"/>
+            </div>
+            <div class="otp-resend">
+              <span class="otp-timer" id="forgotOtpTimer"></span>
+              <button class="otp-resend-btn" id="forgotResendBtn" onclick="forgotSendOTP()" disabled>Resend</button>
+            </div>
+            <button class="auth-btn-primary" onclick="authToast('📲 In production, this would reset your access. Use Demo for now.','info')">
+              🔄 VERIFY &amp; LOGIN
+            </button>
+          </div>
+
+          <p class="auth-switch"><a href="#" onclick="switchAuth('login')">← Back to Login</a></p>
+        </div>
+      </div>
+
+      <!-- Credit & Security -->
+      <div class="auth-security">
+        <span class="auth-security-dot">🔒</span>
+        <span>OTP secured · Device-local data · No server storage</span>
+      </div>
+      <div style="text-align:center;color:var(--text3);font-size:.72rem;margin-top:.75rem;">
+        Made with ❤️ by Aditya Raj &amp; Team Bug Slayers
+      </div>
+
+    </div><!-- end auth-container -->
+  </div><!-- end auth-scroll -->
+
+  <!-- Fixed Emergency Bar -->
   <div class="auth-emergency-bar">
     <span>🆘 EMERGENCY?</span>
     <a href="tel:112" class="auth-emg-btn">112 Emergency</a>
@@ -132,8 +246,12 @@
     <a href="tel:100" class="auth-emg-btn blue">100 Police</a>
   </div>
 </div>
+<!-- End AUTH SCREEN -->
 
-<!-- ══ APP (shown after login) ══ -->
+
+<!-- ══════════════════════════════════════════
+     APP SCREEN (shown after login)
+     ══════════════════════════════════════════ -->
 <div id="appScreen" class="hidden">
 
 <!-- ALARM OVERLAY -->
@@ -277,7 +395,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-primary" onclick="window.location.href='tel:112'">📞 Call 112</button>
-      <button class="btn-primary" style="background:var(--amber)" onclick="window.location.href='tel:108'">🚑 Call 108</button>
+      <button class="btn-primary" style="background:var(--amber);color:#000" onclick="window.location.href='tel:108'">🚑 Call 108</button>
       <button class="btn-secondary" id="copyScriptBtn">📋 Copy</button>
       <button class="btn-secondary" id="closeCallModalBtn">Close</button>
     </div>
@@ -331,6 +449,7 @@
     <button class="menu-btn" id="menuBtn">☰</button>
   </div>
 </nav>
+
 <div class="mobile-menu" id="mobileMenu">
   <a class="mobile-link" onclick="navigateTo('home');closeMobileMenu()">🏠 Home</a>
   <a class="mobile-link" onclick="navigateTo('location');closeMobileMenu()">📍 Live Map</a>
@@ -341,6 +460,44 @@
   <a class="mobile-link" onclick="navigateTo('contacts');closeMobileMenu()">📞 Contacts</a>
   <a class="mobile-link" onclick="navigateTo('alerts');closeMobileMenu()">📋 Alert Log</a>
   <a class="mobile-link logout-link" onclick="doLogout()">🚪 Sign Out</a>
+</div>
+
+<!-- BOTTOM NAVIGATION (Mobile App) -->
+<nav class="bottom-nav" id="bottomNav" aria-label="Mobile navigation">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" id="bn-home" onclick="navigateTo('home')" aria-label="Home">
+      <div class="bn-icon">🏠</div>
+      <span>Home</span>
+    </button>
+    <button class="bn-item" id="bn-location" onclick="navigateTo('location')" aria-label="Live Map">
+      <div class="bn-icon">📍</div>
+      <span>Map</span>
+    </button>
+    <button class="bn-item bn-sos" id="bn-sos"
+      onclick="navigateTo('home');setTimeout(()=>document.getElementById('sosBtn')?.dispatchEvent(new MouseEvent('mousedown')),400)"
+      aria-label="SOS">
+      <div class="bn-icon">🆘</div>
+      <span>SOS</span>
+    </button>
+    <button class="bn-item" id="bn-hospitals" onclick="navigateTo('hospitals')" aria-label="Hospitals">
+      <div class="bn-icon">🏥</div>
+      <span>Hospitals</span>
+    </button>
+    <button class="bn-item" id="bn-profile" onclick="navigateTo('profile')" aria-label="Profile">
+      <div class="bn-icon">👤</div>
+      <span>Profile</span>
+    </button>
+  </div>
+</nav>
+
+<!-- PWA Install Banner -->
+<div class="pwa-banner hidden" id="pwaBanner">
+  <div class="pwa-banner-text">
+    <strong>📱 Install RescueNet</strong>
+    Add to your home screen for instant emergency access
+  </div>
+  <button class="pwa-install-btn" id="pwaInstallBtn">Install</button>
+  <button class="pwa-dismiss-btn" id="pwaDismissBtn" aria-label="Dismiss">✕</button>
 </div>
 
 <main>
@@ -359,14 +516,14 @@
         <h1 class="hero-title">EVERY<br/><em class="accent-text">SECOND</em><br/>COUNTS.</h1>
         <p class="hero-description">India's most advanced emergency response system. One tap SOS, real-time GPS, nearby hospital finder, and automatic alerts to your emergency contacts.</p>
         <div class="quick-dial">
-          <a href="tel:112" class="dial-card"><span class="dial-number">112</span><span class="dial-label">Emergency</span></a>
-          <a href="tel:108" class="dial-card ambulance"><span class="dial-number">108</span><span class="dial-label">Ambulance</span></a>
-          <a href="tel:100" class="dial-card police"><span class="dial-number">100</span><span class="dial-label">Police</span></a>
-          <a href="tel:101" class="dial-card fire"><span class="dial-number">101</span><span class="dial-label">Fire</span></a>
-          <a href="tel:102" class="dial-card"><span class="dial-number">102</span><span class="dial-label">Maternity</span></a>
+          <a href="tel:112"  class="dial-card"><span class="dial-number">112</span><span class="dial-label">Emergency</span></a>
+          <a href="tel:108"  class="dial-card ambulance"><span class="dial-number">108</span><span class="dial-label">Ambulance</span></a>
+          <a href="tel:100"  class="dial-card police"><span class="dial-number">100</span><span class="dial-label">Police</span></a>
+          <a href="tel:101"  class="dial-card fire"><span class="dial-number">101</span><span class="dial-label">Fire</span></a>
+          <a href="tel:102"  class="dial-card"><span class="dial-number">102</span><span class="dial-label">Maternity</span></a>
           <a href="tel:1091" class="dial-card women"><span class="dial-number">1091</span><span class="dial-label">Women</span></a>
         </div>
-        <!-- RAPID CRISIS RESPONSE -->
+        <!-- Rapid Crisis Panel -->
         <div class="crisis-quick-panel">
           <div class="crisis-quick-header">
             <span class="crisis-quick-title">⚡ RAPID CRISIS RESPONSE</span>
@@ -591,7 +748,6 @@
       <p class="section-subtitle">Your personal emergency ID card — shared automatically with first responders during SOS events</p>
     </div>
     <div class="profile-grid">
-      <!-- ID CARD -->
       <div class="medical-card">
         <div class="card-header">
           <span class="card-brand">✚ RescueNet</span>
@@ -624,7 +780,6 @@
         </div>
       </div>
 
-      <!-- FORM -->
       <div class="profile-form">
         <div class="profile-tabs">
           <button class="profile-tab active" data-tab="basic">👤 Basic Info</button>
@@ -647,7 +802,7 @@
             </div>
           </div>
           <div class="form-group"><label>HOME ADDRESS</label><input type="text" id="pAddress" placeholder="Your full address in India"/></div>
-          <div class="form-group"><label>AADHAR / ID NUMBER (last 4 digits)</label><input type="text" id="pAadhar" maxlength="4" placeholder="XXXX"/></div>
+          <div class="form-group"><label>AADHAR / ID (last 4 digits)</label><input type="text" id="pAadhar" maxlength="4" placeholder="XXXX"/></div>
           <div class="form-group"><label>OCCUPATION</label><input type="text" id="pOccupation" placeholder="e.g., Software Engineer, Student"/></div>
         </div>
 
@@ -748,16 +903,22 @@
       <a href="#" onclick="navigateTo('contacts')">Contacts</a>
       <a href="#" onclick="doLogout()">Sign Out</a>
     </div>
-    <p class="footer-copyright">© 2026 RescueNet India | OpenStreetMap · Overpass API · Google Maps · Geolocation API</p>
-    <p class="footer-copyright">Made with ❤️ by Aditya Raj & Team Bug Slayers.</p>
+    <p class="footer-copyright">© 2025 RescueNet India | OpenStreetMap · Overpass API · Google Maps · Geolocation API</p>
+    <p class="footer-copyright">Made with ❤️ by Aditya Raj &amp; Team Bug Slayers.</p>
   </div>
 </footer>
 
 </div><!-- end appScreen -->
 
+<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+<!-- Auth Module (must load before script.js) -->
+<script src="auth.js"></script>
+
+<!-- Main App Script -->
 <script src="script.js"></script>
 </body>
 </html>

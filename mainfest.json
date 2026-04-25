@@ -1,0 +1,37 @@
+{
+  "name": "RescueNet India",
+  "short_name": "RescueNet",
+  "description": "India's fastest emergency response system — SOS, crash detection, hospital finder",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#030a14",
+  "theme_color": "#00d4ff",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='24' fill='%23030a14'/%3E%3Ctext x='50%25' y='55%25' font-size='120' text-anchor='middle' dominant-baseline='middle' fill='%2300d4ff'%3E✚%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='64' fill='%23030a14'/%3E%3Ctext x='50%25' y='55%25' font-size='300' text-anchor='middle' dominant-baseline='middle' fill='%2300d4ff'%3E✚%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["medical", "emergency", "utilities"],
+  "shortcuts": [
+    {
+      "name": "SOS Emergency",
+      "short_name": "SOS",
+      "description": "Activate emergency SOS",
+      "url": "./index.html#home"
+    },
+    {
+      "name": "Find Hospitals",
+      "short_name": "Hospitals",
+      "description": "Find nearest hospitals",
+      "url": "./index.html#hospitals"
+    }
+  ]
+}

@@ -1,9 +1,10 @@
  'use strict';
 
 /* ════════════════════════════════════════
-   RESCUENET INDIA — UPGRADED SCRIPT 2025
-   Auth · Crisis Response · Google Maps
+   RESCUENET INDIA — APP SCRIPT 2025
+   Auth in auth.js | App logic here
    ════════════════════════════════════════ */
+
 
 const HOLD_MS = 2000;
 const CIRCUM  = 2 * Math.PI * 72;
@@ -394,6 +395,12 @@ function navigateTo(sectionId) {
     l.classList.toggle('active', l.getAttribute('onclick') && l.getAttribute('onclick').includes(`'${sectionId}'`));
   });
 
+  // Update bottom nav active state
+  const bnMap = { home:'bn-home', location:'bn-location', hospitals:'bn-hospitals', profile:'bn-profile', contacts:'bn-profile', alerts:'bn-profile', crash:'bn-home' };
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+  const activeBn = bnMap[sectionId];
+  if (activeBn) { const el = $(activeBn); if (el) el.classList.add('active'); }
+
   if (sectionId === 'location') {
     setTimeout(() => { initMap(); if (leafletMap) leafletMap.invalidateSize(); }, 300);
   }
@@ -687,6 +694,36 @@ function formatDist(km) {
   return km < 1 ? `${Math.round(km * 1000)}m away` : `${km.toFixed(1)} km away`;
 }
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+];
+
+async function fetchOverpass(query) {
+  let lastError = null;
+  const body = query.trim();
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+      if (!response.ok) throw new Error(`${endpoint} returned ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.warn(`Overpass fetch failed (${endpoint}):`, error);
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Overpass query failed');
+}
+
 async function fetchNearbyHospitals(lat, lng, radius = 5000) {
   const grid = $('hospitalsGrid');
   if (grid) grid.innerHTML = `<div class="hospitals-empty"><span><span class="spinner"></span></span><p>Searching hospitals near you…</p></div>`;
@@ -704,14 +741,8 @@ async function fetchNearbyHospitals(lat, lng, radius = 5000) {
   `;
 
   try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST', body: query,
-      headers: { 'Content-Type': 'text/plain' }
-    });
-    if (!res.ok) throw new Error('Overpass API error');
-    const data = await res.json();
-
-    const hospitals = data.elements
+    const data = await fetchOverpass(query);
+    const hospitals = (data.elements || [])
       .map(el => {
         const elLat = el.lat || el.center?.lat;
         const elLng = el.lon || el.center?.lon;
@@ -738,8 +769,9 @@ async function fetchNearbyHospitals(lat, lng, radius = 5000) {
     else toast(`🏥 Found ${nearbyHospitals.length} hospitals nearby`, 'success');
 
   } catch(e) {
+    console.warn('Hospital fetch error:', e);
     if (grid) grid.innerHTML = `<div class="hospitals-empty"><span>⚠️</span><p>Could not fetch hospitals. Check your connection.</p></div>`;
-    toast('⚠ Could not fetch nearby hospitals', 'error');
+    toast('⚠ Could not fetch nearby hospitals. Please retry.', 'error');
   }
 }
 
@@ -1725,4 +1757,66 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   } catch(_) {}
+
+  // ── PWA Install Prompt ──
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const banner = $('pwaBanner');
+    if (banner && !localStorage.getItem('rn_pwa_dismissed')) {
+      setTimeout(() => banner.classList.remove('hidden'), 3000);
+    }
+  });
+  $('pwaInstallBtn')?.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') toast('✅ RescueNet installed!', 'success');
+    deferredPrompt = null;
+    $('pwaBanner')?.classList.add('hidden');
+  });
+  $('pwaDismissBtn')?.addEventListener('click', () => {
+    $('pwaBanner')?.classList.add('hidden');
+    try { localStorage.setItem('rn_pwa_dismissed', '1'); } catch(_) {}
+  });
+
+  // ── Wake Lock API (keep screen on during emergencies) ──
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch(_) {}
+  }
+  document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+      await requestWakeLock();
+    }
+  });
+  // Request wake lock when SOS is triggered
+  const origTriggerSOS = triggerSOS;
+  window._wakeLockRequest = requestWakeLock;
+
+  // ── Swipe gestures for section navigation ──
+  const sections = ['home','location','hospitals','crash','profile','contacts','alerts'];
+  let touchStartX = 0, touchStartY = 0;
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    // Only horizontal swipes > 60px with small vertical movement
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 50) {
+      const activePage = document.querySelector('.section-page.active');
+      if (!activePage) return;
+      const currentIdx = sections.indexOf(activePage.id);
+      if (currentIdx === -1) return;
+      if (dx < 0 && currentIdx < sections.length - 1) navigateTo(sections[currentIdx + 1]);
+      if (dx > 0 && currentIdx > 0) navigateTo(sections[currentIdx - 1]);
+    }
+  }, { passive: true });
 });
